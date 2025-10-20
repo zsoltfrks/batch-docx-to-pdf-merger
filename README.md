@@ -66,9 +66,9 @@ outputFolder = r"C:\Path\To\Your\Output_Folder"
 To ensure proper numeric ordering, DOCX files should be named with a leading number, for example:
 
 ```
-1_Introduction.docx
-2_Methodology.docx
-3_Results.docx
+1_foo.docx
+2_foo.docx
+3_foo.docx
 ```
 
 The script will sort and merge them in that order.
