@@ -1,10 +1,4 @@
-# Batch DOCX to Merged PDF with Page Numbers and Versioning
-
-[![Python Version](https://img.shields.io/badge/python-3.7%2B-blue)](https://www.python.org/)
-[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-[![Version](https://img.shields.io/badge/version-1.0.0-orange)]()
-[![GitHub Repo Size](https://img.shields.io/github/repo-size/yourusername/yourrepo)]()
-[![Last Commit](https://img.shields.io/github/last-commit/yourusername/yourrepo)]()
+# Batch DOCX to PDF merger with automatic TOC generation
 
 ## Overview
 
