@@ -1,4 +1,3 @@
-# python
 import contextlib
 # new imports for DOCX conversion
 import io as _io
@@ -664,3 +663,4 @@ final_pdf_path = os.path.join(
 add_page_numbers(bookmarked_pdf_path, final_pdf_path, toc_pages)
 
 print(f"\nKÉSZ! A végső PDF itt van:\n{final_pdf_path}\n")
+
