@@ -1,22 +1,23 @@
 # Batch DOCX to PDF merger with automatic TOC generation
 
-## Overview
+<h3>Overview</h3>
 
 This Python script automates the process of converting multiple DOCX files into PDFs, merging them into a single PDF, adding continuous page numbers, and managing versioning automatically. It is compatible with the latest `pypdf` (v3+) library.
 
 ---
 
-## Features
+<h3>Features</h3>
 
-* Converts all DOCX files in a specified folder to individual PDFs.
+* Converts all DOCX files in a specified folder to individual PDFs and a merged PDF also.
 * Merges all PDFs in numeric order based on the leading number in the file names.
 * Adds continuous page numbers to the merged PDF.
 * Automatically tracks versions (`v1`, `v2`, `v3`, etc.) to prevent overwriting previous merged PDFs.
 * Supports both single and multi-page DOCX files.
+* Creates a working, clickable table of contest at the begining of the PDF file.
 
 ---
 
-## Requirements
+<h3>Requirements</h3>
 
 * Python 3.7+
 * Libraries:
@@ -33,7 +34,7 @@ pip install docx2pdf pypdf reportlab
 
 ---
 
-## Usage
+<h3>Usage</h3>
 
 1. Set the folder paths for the DOCX input files and the output PDFs:
 
@@ -55,7 +56,7 @@ outputFolder = r"C:\Path\To\Your\Output_Folder"
 
 ---
 
-## File Naming Convention
+<h3>File Naming Convention</h3>
 
 To ensure proper numeric ordering, DOCX files should be named with a leading number, for example:
 
@@ -69,7 +70,7 @@ The script will sort and merge them in that order.
 
 ---
 
-## Customization
+<h3>Customization</h3>
 
 * **Page Number Positioning**: You can modify the x and y coordinates in the script:
 
@@ -92,7 +93,7 @@ can.drawString(x_centered, 80, text)
 
 ---
 
-## Notes
+<h3>Notes</h3>
 
 * Ensure all DOCX files are closed before running the script.
 * Large numbers of pages may take longer to process.
@@ -100,6 +101,6 @@ can.drawString(x_centered, 80, text)
 
 ---
 
-## License
+<h3>License</h3>
 
 This script is open-source and free to use for personal or commercial projects. No warranty is provided.
