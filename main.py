@@ -12,6 +12,10 @@ from pypdf import PdfReader, PdfWriter
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
 
+# PRE-COMPILED REGEX PATTERNS
+_RE_LEADING_NUMBER = re.compile(r'(\d+)')
+_RE_VERSIONED_PDF = re.compile(r'^merged_v\d+\.pdf$')
+
 # FOLDER CONFIGURATION
 PROJECT_ROOT = r'C:\Temp\script test'
 INPUT_FOLDER = r'C:\Temp\script test'
@@ -30,7 +34,7 @@ def sort_by_leading_number(filename: str) -> int:
     Returns:
         int: The leading number, or infinity if no number is found.
     """
-    match = re.match(r'(\d+)', filename)
+    match = _RE_LEADING_NUMBER.match(filename)
     return int(match.group(1)) if match else float('inf')
 
 
@@ -39,7 +43,7 @@ def between_first_last_underscore(s: str) -> str:
     Return the substring between the first and last underscore.
 
     Example:
-        '0_IT üzemeltetés elérése_UJ.pdf' -> 'IT üzemeltetés elérése'
+        '0_foo.pdf' -> 'foo'
 
     Args:
         s (str): Input string.
@@ -105,6 +109,7 @@ def create_toc_pdf(chapters, page_size=A4, title='Tartalomjegyzék', template_pd
         c.setFont('Helvetica-Bold', font_title_size)
         c.drawString(left_x, top_y, title)
         c.setFont('Helvetica', font_line_size)
+        dot_width = c.stringWidth('.', "Helvetica", font_line_size)
 
         for page_idx, entries in enumerate(pages_entries):
             if page_idx != 0:
@@ -120,7 +125,7 @@ def create_toc_pdf(chapters, page_size=A4, title='Tartalomjegyzék', template_pd
 
                 # compute dot count to fill gap between left text and right text
                 dots_width = right_x - left_x - title_width - page_number_width
-                dots_count = max(int(dots_width / c.stringWidth('.', "Helvetica", font_line_size)), 0)
+                dots_count = max(int(dots_width / dot_width), 0)
                 dots = '.' * dots_count
 
                 # draw title, dots and page number
@@ -141,6 +146,11 @@ def create_toc_pdf(chapters, page_size=A4, title='Tartalomjegyzék', template_pd
     right_x = tpl_w - 60  # right-aligned on template
     top_y = tpl_h - 100   # TOC starts 40 pixels lower on template pages
 
+    # pre-compute dot width (constant for the font/size)
+    _tmp_c = canvas.Canvas(BytesIO(), pagesize=(tpl_w, tpl_h))
+    _tmp_c.setFont('Helvetica', font_line_size)
+    tpl_dot_width = _tmp_c.stringWidth('.', "Helvetica", font_line_size)
+
     writer = PdfWriter()
     for page_idx, entries in enumerate(pages_entries):
         # select template page (repeat if fewer template pages than TOC pages)
@@ -157,7 +167,7 @@ def create_toc_pdf(chapters, page_size=A4, title='Tartalomjegyzék', template_pd
             page_number_width = c.stringWidth(page_number, "Helvetica", font_line_size)
 
             dots_width = right_x - left_x - title_width - page_number_width
-            dots_count = max(int(dots_width / c.stringWidth('.', "Helvetica", font_line_size)), 0)
+            dots_count = max(int(dots_width / tpl_dot_width), 0)
             dots = '.' * dots_count
 
             c.drawString(x, y, display_title)
@@ -225,6 +235,28 @@ def sanitize_pdf_if_needed(path: str) -> bool:
             return False
 
 
+def _insert_toc_links(doc, pages_entries, toc_page_count: int, page_size, font_line_size: int):
+    """Insert internal links from TOC entries into an open fitz document."""
+    width, _height = page_size
+    right_x = width - 120
+    for toc_page_idx, entries in enumerate(pages_entries):
+        if toc_page_idx >= doc.page_count:
+            continue
+        page = doc[toc_page_idx]
+        page_height = page.rect.height
+        for _title, start_page, x, y in entries:
+            dest_page = start_page + toc_page_count
+            if dest_page < 0 or dest_page >= doc.page_count:
+                continue
+            y_top = page_height - y
+            y_bottom = page_height - (y + font_line_size)
+            rect = fitz.Rect(float(x), float(y_bottom), float(right_x), float(y_top))
+            try:
+                page.insert_link({"kind": fitz.LINK_GOTO, "from": rect, "page": int(dest_page)})
+            except Exception:
+                continue
+
+
 def add_links_to_merged_pdf(merged_pdf_path: str, pages_entries, toc_page_count: int, page_size=A4, font_line_size=11):
     """
     Add internal links from TOC entries to their target pages.
@@ -244,30 +276,7 @@ def add_links_to_merged_pdf(merged_pdf_path: str, pages_entries, toc_page_count:
     doc = None
     try:
         doc = fitz.open(merged_pdf_path)
-        # Coordinates: ReportLab origin bottom-left; PyMuPDF origin top-left
-        width, height = page_size
-        right_x = width - 120
-
-        for toc_page_idx, entries in enumerate(pages_entries):
-            if toc_page_idx >= doc.page_count:
-                # safety check
-                continue
-            page = doc[toc_page_idx]
-            page_height = page.rect.height
-            for display_title, start_page, x, y in entries:
-                dest_page = start_page + toc_page_count  # destination in combined doc
-                # Ensure dest_page exists
-                if dest_page < 0 or dest_page >= doc.page_count:
-                    continue
-                # Convert ReportLab (bottom-left) y to PyMuPDF (top-left)
-                y_top = page_height - y
-                y_bottom = page_height - (y + font_line_size)
-                rect = fitz.Rect(float(x), float(y_bottom), float(right_x), float(y_top))
-                try:
-                    page.insert_link({"kind": fitz.LINK_GOTO, "from": rect, "page": int(dest_page)})
-                except Exception:
-                    # insertion of a single link should not break the rest
-                    continue
+        _insert_toc_links(doc, pages_entries, toc_page_count, page_size, font_line_size)
         # overwrite the file safely by saving to a temporary file then replacing original
         temp_path = merged_pdf_path + '.tmp'
         doc.save(temp_path)
@@ -284,24 +293,7 @@ def add_links_to_merged_pdf(merged_pdf_path: str, pages_entries, toc_page_count:
         if sanitize_pdf_if_needed(merged_pdf_path):
             try:
                 doc = fitz.open(merged_pdf_path)
-                # retry the simple pass (best-effort)
-                width, height = page_size
-                right_x = width - 120
-                for toc_page_idx, entries in enumerate(pages_entries):
-                    if toc_page_idx >= doc.page_count:
-                        continue
-                    page = doc[toc_page_idx]
-                    page_height = page.rect.height
-                    for display_title, start_page, x, y in entries:
-                        dest_page = start_page + toc_page_count
-                        if 0 <= dest_page < doc.page_count:
-                            y_top = page_height - y
-                            y_bottom = page_height - (y + font_line_size)
-                            rect = fitz.Rect(float(x), float(y_bottom), float(right_x), float(y_top))
-                            try:
-                                page.insert_link({"kind": fitz.LINK_GOTO, "from": rect, "page": int(dest_page)})
-                            except Exception:
-                                continue
+                _insert_toc_links(doc, pages_entries, toc_page_count, page_size, font_line_size)
                 temp_path = merged_pdf_path + '.tmp'
                 doc.save(temp_path)
                 doc.close()
@@ -317,22 +309,22 @@ def add_links_to_merged_pdf(merged_pdf_path: str, pages_entries, toc_page_count:
             print(f"Warning: sanitize failed; skipping adding links to '{merged_pdf_path}'.")
 
 
-def merge_pdfs_in_folder(folder_paths, output_pdf_path: str):
+def merge_pdfs_in_folder(folder_paths):
     """
     Merge PDF files from multiple folders (deduplicated), excluding
     script-generated temporary files and template files.
 
     Args:
         folder_paths (list): List of folder paths to scan for PDFs.
-        output_pdf_path (str): Output path for the merged PDF.
 
     Returns:
-        list: List of (filename, start_page) chapter entries in the merged document.
+        tuple: (PdfWriter with merged pages, list of (filename, start_page) chapter entries).
     """
     # normalize and exclude common generated names (lowercased)
     generated_names = {'merged.pdf', 'merged_with_toc.pdf', 'bookmarked.pdf'}
     pdf_candidates = []
     seen = set()
+    intermediate_abs = os.path.abspath(INTERMEDIATE_FOLDER)
 
     for folder in folder_paths:
         if not os.path.isdir(folder):
@@ -349,8 +341,9 @@ def merge_pdfs_in_folder(folder_paths, output_pdf_path: str):
             if fname.startswith('!'):
                 continue
             # skip any file that resides in the intermediate folder
+            full_abs = os.path.abspath(full)
             try:
-                if os.path.commonpath([os.path.abspath(full), os.path.abspath(INTERMEDIATE_FOLDER)]) == os.path.abspath(INTERMEDIATE_FOLDER):
+                if os.path.commonpath([full_abs, intermediate_abs]) == intermediate_abs:
                     continue
             except Exception:
                 pass
@@ -358,14 +351,14 @@ def merge_pdfs_in_folder(folder_paths, output_pdf_path: str):
             # skip known generated filenames
             if lname in generated_names:
                 continue
-            # skip versioned final PDFs produced by this script (e.g. alapismeretek_v12.pdf)
-            if re.match(r'^alapismeretek_v\d+\.pdf$', lname):
+            # skip versioned final PDFs produced by this script (e.g. merged_v12.pdf)
+            if _RE_VERSIONED_PDF.match(lname):
                 continue
 
             # deduplicate by absolute path
-            if os.path.abspath(full) in seen:
+            if full_abs in seen:
                 continue
-            seen.add(os.path.abspath(full))
+            seen.add(full_abs)
             # store tuple for later sorting (use filename for sort key)
             pdf_candidates.append((fname, full))
 
@@ -390,15 +383,7 @@ def merge_pdfs_in_folder(folder_paths, output_pdf_path: str):
 
         current_page += len(reader.pages)
 
-    # ensure output directory exists
-    out_dir = os.path.dirname(output_pdf_path)
-    if out_dir:
-        os.makedirs(out_dir, exist_ok=True)
-
-    with open(output_pdf_path, 'wb') as merged:
-        writer.write(merged)
-
-    return chapters
+    return writer, chapters
 
 
 def add_outline_bookmarks(input_pdf_path: str, output_pdf_path: str, chapters: list):
@@ -412,9 +397,7 @@ def add_outline_bookmarks(input_pdf_path: str, output_pdf_path: str, chapters: l
     """
     reader = PdfReader(input_pdf_path)
     writer = PdfWriter()
-
-    for page in reader.pages:
-        writer.add_page(page)
+    writer.clone_reader_document_root(reader)
 
     for title, page in chapters:
         display_title = title.replace('.pdf', '')
@@ -544,7 +527,6 @@ def get_next_version_number(folder_path: str, base_name: str) -> int:
 
     version_numbers = []
     for filename in existing:
-        # match digits immediately after the provided base_name, e.g. 'alapismeretek_v1.pdf'
         m = re.search(rf'^{re.escape(base_name)}(\d+)\.pdf$', filename)
         if m:
             version_numbers.append(int(m.group(1)))
@@ -622,25 +604,23 @@ candidate_path = os.path.join(OUTPUT_FOLDER, candidate_name)
 if os.path.exists(candidate_path):
     template_pdf_path = candidate_path
 
-# 2) Merge PDFs
-merged_pdf_path = os.path.join(INTERMEDIATE_FOLDER, 'merged.pdf')
-chapters = merge_pdfs_in_folder([INPUT_FOLDER, OUTPUT_FOLDER], merged_pdf_path)
+# 2) Merge PDFs (in memory — no intermediate file)
+merge_writer, chapters = merge_pdfs_in_folder([INPUT_FOLDER, OUTPUT_FOLDER])
 
 # 3) Create multi-page TOC (in memory) — without links
 toc_buffer, pages_entries = create_toc_pdf(chapters, template_pdf_path=template_pdf_path)
 toc_pages = len(pages_entries)
 
-# 4) Prepend TOC pages to merged PDF
-reader_main = PdfReader(merged_pdf_path)
+# 4) Prepend TOC pages to merged PDF and write once
 reader_toc = PdfReader(toc_buffer)
-
 combined_writer = PdfWriter()
 for p in reader_toc.pages:
     combined_writer.add_page(p)
-for page in reader_main.pages:
+for page in merge_writer.pages:
     combined_writer.add_page(page)
 
 merged_with_toc_path = os.path.join(INTERMEDIATE_FOLDER, 'merged_with_toc.pdf')
+os.makedirs(os.path.dirname(merged_with_toc_path), exist_ok=True)
 with open(merged_with_toc_path, 'wb') as f:
     combined_writer.write(f)
 
@@ -653,7 +633,7 @@ chapters_with_offset = [(t, p + toc_pages) for (t, p) in chapters]
 add_outline_bookmarks(merged_with_toc_path, bookmarked_pdf_path, chapters_with_offset)
 
 # 7) Add page numbers and versioned output name
-versioned_base_name = 'alapismeretek_v'
+versioned_base_name = 'merged_v'
 next_version = get_next_version_number(OUTPUT_FOLDER, versioned_base_name)
 
 final_pdf_path = os.path.join(
