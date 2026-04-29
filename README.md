@@ -3,8 +3,7 @@
 <h3>Overview</h3>
 
 This Python script automates the process of converting multiple DOCX files into PDFs, merging them into a single PDF, adding continuous page numbers, and managing versioning automatically. It is compatible with the latest `pypdf` (v3+) library.
-
----
+<h1>&shy;
 
 <h3>Features</h3>
 
@@ -14,9 +13,7 @@ This Python script automates the process of converting multiple DOCX files into 
 * Automatically tracks versions (`v1`, `v2`, `v3`, etc.) to prevent overwriting previous merged PDFs.
 * Supports both single and multi-page DOCX files.
 * Creates a working, clickable table of contest at the begining of the PDF file.
-
----
-
+<h1>&shy;
 <h3>Requirements</h3>
 
 * Python 3.7+
