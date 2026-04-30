@@ -147,7 +147,7 @@ def _draw_toc_page(c, entries, left_x: float, right_x: float,
     c.setFont('Helvetica', font_line_size)
     for display_title, start_page, x, y in entries:
         title_width      = c.stringWidth(display_title, 'Helvetica', font_line_size)
-        page_label       = f'{start_page + 1}. oldal'
+        page_label       = f'{start_page + 1}. page'
         page_label_width = c.stringWidth(page_label, 'Helvetica', font_line_size)
         dots_count = max(
             int((right_x - left_x - title_width - page_label_width) / dot_width), 0
@@ -158,7 +158,7 @@ def _draw_toc_page(c, entries, left_x: float, right_x: float,
 
 
 def create_toc_pdf(chapters, page_size=A4,
-                   title: str = 'Tartalomjegyzék',
+                   title: str = 'Table of Contents',
                    template_pdf_path: str = None):
     """Create the Table of Contents PDF in memory.
 
@@ -469,7 +469,7 @@ def add_page_numbers(input_pdf_path: str, output_pdf_path: str,
                      toc_page_count: int = 0) -> None:
     """Stamp page numbers onto every content page (pages after the TOC).
 
-    Numbers are rendered as "CURRENT / TOTAL oldal" at the bottom-right corner.
+    Numbers are rendered as "CURRENT / TOTAL page" at the bottom-right corner.
 
     Args:
         input_pdf_path: Source PDF path.
@@ -506,7 +506,7 @@ def add_page_numbers(input_pdf_path: str, output_pdf_path: str,
     for page_idx in range(toc_page_count, doc.page_count):
         try:
             content_page_number = page_idx - toc_page_count + 1
-            text = f'{content_page_number} / {total_content_pages} oldal'
+            text = f'{content_page_number} / {total_content_pages} page'
             page = doc[page_idx]
             r    = page.rect
             x0 = r.width  - textbox_width - margin
@@ -568,7 +568,7 @@ def main() -> None:
        ``INTERMEDIATE_FOLDER``.
     5. Insert clickable hyperlinks from each TOC entry to its target page.
     6. Add PDF outline bookmarks for each chapter.
-    7. Stamp "CURRENT / TOTAL oldal" page numbers on every content page and
+    7. Stamp "CURRENT / TOTAL page" page numbers on every content page and
        write the result to ``OUTPUT_FOLDER`` as ``merged_v<N>.pdf``, where
        ``<N>`` is the next unused version number.
     """
@@ -591,7 +591,7 @@ def main() -> None:
             continue
         safe_convert_single(src_path, OUTPUT_FOLDER)
 
-    candidate_path    = os.path.join(OUTPUT_FOLDER, '!netoroldki.pdf')
+    candidate_path    = os.path.join(OUTPUT_FOLDER, '!template.pdf')
     template_pdf_path = candidate_path if os.path.exists(candidate_path) else None
 
     merge_writer, chapters = merge_pdfs_in_folder([INPUT_FOLDER, OUTPUT_FOLDER])
@@ -620,7 +620,7 @@ def main() -> None:
     final_pdf_path = os.path.join(OUTPUT_FOLDER, f'{versioned_base}{next_version}.pdf')
     add_page_numbers(bookmarked_pdf_path, final_pdf_path, toc_pages)
 
-    print(f"\nKÉSZ! A végső PDF itt van:\n{final_pdf_path}\n")
+    print(f"\nDone! Final PDF saved to:\n{final_pdf_path}\n")
 
 
 if __name__ == '__main__':
